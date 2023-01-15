@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Widget.Theme.VideoPlayer.ActionBar.Fullscreen" parent="Widget.AppCompat.ActionBar">
+        <item name="android:background">@android:color/transparent</item>
+        <item name="android:titleTextColor">@color/light_blue_600</item>
+        <item name="android:elevation">2dp</item>
+    </style>
+
+    <style name="Widget.Theme.VideoPlayer.ButtonBar.Fullscreen" parent="">
+        <item name="android:background">@color/black_overlay</item>
+        <item name="android:buttonBarStyle">?android:attr/buttonBarStyle</item>
+    </style>
+    <style name="AppBottomSheetDialogTheme" parent="Theme.Design.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/AppBottomSheetDialogStyle</item>
+    </style>
+    <style name="AppBottomSheetDialogStyle" parent="Widget.Design.BottomSheet.Modal">
+        <item name="android:background">@drawable/rounded_drawable</item>
+    </style>
+</resources>

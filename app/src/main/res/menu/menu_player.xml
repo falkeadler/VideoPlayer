@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/searchTmdb"
+        android:icon="@drawable/tmdb"
+        android:title="Search The Movie DB"
+        app:showAsAction="always" />
+</menu>
