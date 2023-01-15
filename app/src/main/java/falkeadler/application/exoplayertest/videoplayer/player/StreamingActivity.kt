@@ -119,6 +119,7 @@ class StreamingActivity : PlayerActivityBase() {
         if (playbackState == Player.STATE_BUFFERING) {
             L.e("buffering : ${player.bufferedPercentage}%")
             binding.playController.bufferingStateChanged(true)
+            binding.playController.seekBarSecondaryProgress = player.bufferedPercentage * 10
         }
     }
 

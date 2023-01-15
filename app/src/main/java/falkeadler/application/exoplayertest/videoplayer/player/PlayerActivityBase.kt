@@ -194,9 +194,8 @@ VideoControllerView.OnControllerVisibilityChangeListener{
             }
 
             override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                binding.playController.convertProgressToSeekPosition(player.duration)
+                player.seekTo(binding.playController.convertProgressToSeekPosition(player.duration))
             }
-
         })
         handleIntent(intent = this.intent)
     }

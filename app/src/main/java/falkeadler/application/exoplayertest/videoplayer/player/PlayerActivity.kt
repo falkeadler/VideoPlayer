@@ -143,7 +143,6 @@ class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListe
         )
 
         binding.playerView.player = player
-
         windowInsetsController = WindowCompat.getInsetsController(window, binding.playController)
 
         binding.playController.setOnControllerButtonsClickListener(object : VideoControllerView.OnControllerButtonsClickListener {

@@ -39,6 +39,19 @@ constructor(context: Context,
     private var seekBarChangeListener: SeekBar.OnSeekBarChangeListener? =  null
     private var visibilityChangeListener: OnControllerVisibilityChangeListener? = null
 
+    var seekBarSecondaryProgress: Int
+        get() {
+            return binding.progressLayout.seekbar.secondaryProgress
+        }
+        set(value) {
+            binding.progressLayout.seekbar.secondaryProgress = value
+        }
+    var seekBarProgress : Int
+        get() = binding.progressLayout.seekbar.progress
+        set(value) {
+            binding.progressLayout.seekbar.progress = value
+        }
+
     init {
         binding.progressLayout.seekbar
         binding.progressLayout.seekbar.apply {
@@ -146,7 +159,7 @@ constructor(context: Context,
     }
 
     fun convertProgressToSeekPosition(duration: Long): Long {
-        return (duration * ((binding.progressLayout.seekbar.progress) / 1000.0)).toLong()
+        return (duration * ((seekBarProgress) / 1000.0)).toLong()
     }
 
     private val startGestureListener = GestureDetector(getContext(), SimpleGestureDetectorWithDirection(true))
