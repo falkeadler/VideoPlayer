@@ -4,14 +4,12 @@ import android.app.ActivityManager
 import android.app.Application
 import android.content.Context
 import android.content.Intent
-import com.facebook.drawee.backends.pipeline.Fresco
 
 class PlayerApplication: Application() {
     override fun onCreate() {
         super.onCreate()
-        Fresco.initialize(this)
     }
-
+    val youtube_key = "AIzaSyBRUEHcuNquL1dXg0BdPrNIxAahkGmeehg"
     fun launcherToFront() {
         val am = applicationContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         for (task in am.appTasks) {

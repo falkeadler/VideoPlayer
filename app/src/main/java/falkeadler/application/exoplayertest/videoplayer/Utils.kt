@@ -26,45 +26,6 @@ object L {
     }
 }
 
-object VideoThumbnailExtractor {
-    interface OnThumbnailExtractedListener {
-        fun onExtracted(id: Int, position: Int)
-    }
-    private var listener: OnThumbnailExtractedListener? = null
-    val thumbnailMap = mutableMapOf<Int, Bitmap>()
-    fun contains(id:Int) = thumbnailMap.contains(id)
-
-
-    @OptIn(DelicateCoroutinesApi::class)
-    fun extractThumbnail(file: File, id: Int, position: Int) {
-        GlobalScope.launch(Dispatchers.Default) {
-            ThumbnailUtils.createVideoThumbnail(file, Size(400, 225), null).let {
-                thumbnailMap[id] = it
-                launch(Dispatchers.Main) {
-                    L.e("[BITMAP] extracted!!  ${it.width} x ${it.height} || id = $id || position = $position")
-                    listener?.onExtracted(id, position)
-                }
-            }
-        }
-    }
-
-    fun setOnThumbnailExtractedListener(cb: OnThumbnailExtractedListener) {
-        if (listener == null) {
-            listener = cb
-        }
-    }
-
-    fun setOnThumbnailExtractedListener(cb: (id: Int, position: Int) -> Unit) {
-        if (listener == null) {
-            listener = object : OnThumbnailExtractedListener {
-                override fun onExtracted(id: Int, position: Int) {
-                    cb(id, position)
-                }
-            }
-        }
-    }
-}
-
 fun TextView.setDurationText(time: Long, justSec: Boolean = false) {
     val sec = if (justSec) time else time / 1000
     val s = sec % 60

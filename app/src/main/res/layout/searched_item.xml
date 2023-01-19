@@ -4,29 +4,30 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="5dp"
-    android:background="@android:color/holo_purple">
+    android:padding="5dp">
     <RelativeLayout
         android:id="@+id/infoLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:background="@android:color/holo_orange_light">
+        android:background="@android:color/background_dark">
         <TextView
             android:id="@+id/title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="TITLE"
             android:textSize="25sp"
-            android:textStyle="bold"/>
+            android:textStyle="bold"
+            android:textColor="@android:color/holo_blue_dark"/>
         <TextView
             android:id="@+id/information"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="20sp"
             android:text="INFORMATION"
-            android:layout_below="@id/title"/>
+            android:layout_below="@id/title"
+            android:textColor="@android:color/white"/>
     </RelativeLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

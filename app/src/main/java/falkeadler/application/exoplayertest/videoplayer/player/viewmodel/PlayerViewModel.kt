@@ -13,7 +13,7 @@ class VideoData(val title: String, val duration: Long, val mediaId: String, val 
 
 class PlayerViewModel(application: Application): AndroidViewModel(application) {
     @SuppressLint("Range", "SuspiciousIndentation")
-    suspend fun buildLocalList(uri: Uri, bucketId: String): Pair<List<MediaItem>, Int> {
+    fun buildLocalList(uri: Uri, bucketId: String): Pair<List<MediaItem>, Int> {
         val selection = "${MediaStore.Video.VideoColumns.BUCKET_ID}=?"
         val args = arrayOf(bucketId)
         val list: MutableList<MediaItem> =
@@ -67,7 +67,4 @@ class PlayerViewModel(application: Application): AndroidViewModel(application) {
             } ?: VideoData("", 0, uri.lastPathSegment!!, 1, 1)
         }
     }
-
-
-
 }

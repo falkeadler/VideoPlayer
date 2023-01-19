@@ -1,18 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
+<layout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent">
-    <androidx.core.widget.ContentLoadingProgressBar
-        android:id="@+id/buffering_contents"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <data>
+        <variable
+            name="currentViewModel"
+            type="falkeadler.application.exoplayertest.videoplayer.list.viewmodel.YoutubeViewModel" />
+    </data>
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        style="?android:attr/progressBarStyle"
-        android:indeterminateTint="@color/light_blue_A200"
-        android:visibility="gone"/>
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/youtube_list"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
-</androidx.constraintlayout.widget.ConstraintLayout>
+        android:layout_height="match_parent">
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:id="@+id/searchField"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toTopOf="parent"
+            android:orientation="horizontal"
+            app:endIconMode="custom"
+            app:endIconTint="@null"
+            app:endIconTintMode="multiply"
+            app:endIconDrawable="@drawable/search_drawable">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/textField"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="enter query text"
+                android:text="@={currentViewModel.searchText}"/>
+        </com.google.android.material.textfield.TextInputLayout>
+        <androidx.core.widget.ContentLoadingProgressBar
+            android:id="@+id/buffering_contents"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toBottomOf="@id/searchField"
+            app:layout_constraintBottom_toBottomOf="parent"
+            style="?android:attr/progressBarStyle"
+            android:indeterminateTint="@color/light_blue_A200"
+            android:visibility="gone"/>
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/youtube_list"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toBottomOf="@id/searchField"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>

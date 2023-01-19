@@ -289,6 +289,14 @@ VideoControllerView.OnControllerVisibilityChangeListener{
         stopTimer2()
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        binding.playerView.player = null
+        player.stop()
+        player.release()
+        player.removeListener(this)
+    }
+
     override fun finish() {
         if (onceEnterPipMode) {
             L.e("once enter in pipMode")

@@ -6,9 +6,8 @@ import android.net.Uri
 import android.provider.MediaStore
 import android.view.*
 import androidx.recyclerview.widget.RecyclerView
-import com.facebook.imagepipeline.core.ImagePipeline
+import com.bumptech.glide.Glide
 import falkeadler.application.exoplayertest.videoplayer.R
-import falkeadler.application.exoplayertest.videoplayer.VideoThumbnailExtractor
 import falkeadler.application.exoplayertest.videoplayer.databinding.ContentItemBinding
 import falkeadler.application.exoplayertest.videoplayer.setDurationText
 
@@ -18,16 +17,6 @@ import java.io.File
 class VideoItemCursorAdapter(private var currentCursor: Cursor?): RecyclerView.Adapter<VideoItemCursorAdapter.VideoItem>() {
     private val dataSetObserver = NotifyDataSetObserver()
     private var listener: OnItemClickListener? = null
-
-    init {
-        VideoThumbnailExtractor.setOnThumbnailExtractedListener { id, position ->
-            currentCursor?.let {
-                if (it.count > position) {
-                    notifyItemChanged(position)
-                }
-            }
-        }
-    }
 
     inner class VideoItem(private val binding: ContentItemBinding): RecyclerView.ViewHolder(binding.root) {
         fun configure(position: Int) {
@@ -41,15 +30,14 @@ class VideoItemCursorAdapter(private var currentCursor: Cursor?): RecyclerView.A
                     this.title.text = title
                     this.videoDuration.setDurationText(duration.toLong())
                     this.smallInformation.text = resolution
-                    this.videoThumbnail.hierarchy.setPlaceholderImage(R.drawable.video_icon)
+
                     this.description.visibility = View.GONE
-                    if(VideoThumbnailExtractor.contains(id)) {
-                        //??? 이걸 어떻게 해볼까......
-                        this.videoThumbnail.setImageBitmap(VideoThumbnailExtractor.thumbnailMap[id])
-                    } else {
-                        val file = File(it.getString(it.getColumnIndexOrThrow(MediaStore.Video.VideoColumns.DATA)))
-                        VideoThumbnailExtractor.extractThumbnail(file, id, absoluteAdapterPosition)
-                    }
+                    val file = File(it.getString(it.getColumnIndexOrThrow(MediaStore.Video.VideoColumns.DATA)))
+                    Glide.with(binding.root)
+                        .asBitmap()
+                        .load(Uri.fromFile(file))
+                        .placeholder(R.drawable.video_icon)
+                        .into(binding.videoThumbnail)
                     this.pie.visibility = View.VISIBLE
                 }
             }

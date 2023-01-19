@@ -1,8 +1,8 @@
-package falkeadler.application.exoplayertest.videoplayer
+package falkeadler.library.youtubedataextractor
 
-import falkeadler.application.exoplayertest.videoplayer.list.NewYoutubeExtractor
 import org.junit.Test
 
+import org.junit.Assert.*
 
 /**
  * Example local unit test, which will execute on the development machine (host).
@@ -12,8 +12,6 @@ import org.junit.Test
 class ExampleUnitTest {
     @Test
     fun addition_isCorrect() {
-        NewYoutubeExtractor().apply {
-            videoId = "c1XJIopJXwo"
-        }.extract()
+        assertEquals(4, 2 + 2)
     }
 }

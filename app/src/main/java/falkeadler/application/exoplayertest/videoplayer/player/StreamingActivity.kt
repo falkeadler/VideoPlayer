@@ -6,6 +6,7 @@ import android.net.Uri
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.util.Rational
+import androidx.core.graphics.createBitmap
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.source.MediaSource
@@ -13,32 +14,73 @@ import com.google.android.exoplayer2.source.MergingMediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.source.dash.DashMediaSource
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
+import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
 import com.google.android.exoplayer2.video.VideoSize
-import com.google.gson.Gson
+
 import falkeadler.application.exoplayertest.videoplayer.L
-import falkeadler.application.exoplayertest.videoplayer.list.YoutubeData
 import falkeadler.application.exoplayertest.videoplayer.player.viewmodel.VideoData
+import falkeadler.library.youtubedataextractor.YouTubeData
+import falkeadler.library.youtubedataextractor.YouTubeDataExtractor
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 
 class StreamingActivity : PlayerActivityBase() {
-
     override fun handleIntent(intent: Intent?) {
         intent?.extras?.getString("YOUTUBEDATA")?.let {
-
-            val data = Gson().fromJson(it, YoutubeData::class.java)
+            val parser = Json {
+                this.isLenient = true
+                this.coerceInputValues = true
+                this.ignoreUnknownKeys = true
+            }
+            val data = parser.decodeFromString<YouTubeData>(it)
             if (data.title.isNotEmpty()) {
                 supportActionBar?.title = data.title
             }
-            if (data.audioUrl.isNotEmpty() && data.videoUrl.isNotEmpty()) {
-                val audio = buildDataSource(data.audioUrl, data.isAudioHls, data.isAudioDash)
-                val video = buildDataSource(data.videoUrl, data.isVideoHls, data.isVideoDash)
-                val mergeSource = MergingMediaSource(video, audio)
-                player.addMediaSource(mergeSource)
+            if (data.isLiveContent && data.hlsStream.isNotEmpty()) {
+                val factory = DefaultHttpDataSource.Factory()
+                val hls = data.hlsStream.map {
+                    hlsItem ->
+                    HlsMediaSource.Factory(factory).createMediaSource(MediaItem.fromUri(hlsItem.url))
+                }.toTypedArray()
+                val mergingMediaSource = MergingMediaSource(*hls)
+                player.addMediaSource(mergingMediaSource)
                 player.prepare()
             } else {
-                player.addMediaSource(buildDataSource(data.avUrl))
-                player.prepare()
+                if (data.videos.isNotEmpty() && data.audios.isNotEmpty()) {
+                    val factory = DefaultHttpDataSource.Factory()
+                    val vSources = data.videos.filter {
+                        itemVideo ->
+                        YouTubeDataExtractor.ITAG_TYPES.DASH_VIDEO.contains(itemVideo.itag)
+                    }.map {
+                        itemVideo ->
+                        ProgressiveMediaSource.Factory(factory).createMediaSource(MediaItem.fromUri(itemVideo.url))
+                    }.toTypedArray()
+                    val aSources = data.audios.filter { itemAudio ->
+                        YouTubeDataExtractor.ITAG_TYPES.DASH_AUDIO.contains(itemAudio.itag)
+                    }.map {
+                        itemAudio ->
+                        ProgressiveMediaSource.Factory(factory).createMediaSource(MediaItem.fromUri(itemAudio.url))
+                    }.toTypedArray()
+                    val mergingMediaSource = MergingMediaSource(*vSources, *aSources)
+                    player.addMediaSource(mergingMediaSource)
+                    player.prepare()
+                } else if(data.oldSchool.isNotEmpty()){
+                    val factory = DefaultHttpDataSource.Factory()
+                    val max = data.oldSchool.fold(data.oldSchool.first()) {
+                        acc, itemEither ->
+                        if (acc.height < itemEither.height) {
+                            itemEither
+                        } else {
+                            acc
+                        }
+                    }
+                    val mediaSource = ProgressiveMediaSource.Factory(factory).createMediaSource(MediaItem.fromUri(max.url))
+                    player.addMediaSource(mediaSource)
+                    player.prepare()
+                }
             }
+
         } ?: run {
             // 여기선 일단 DATA를 보고 시작하자.
             intent?.data?.let {
@@ -49,7 +91,6 @@ class StreamingActivity : PlayerActivityBase() {
             }
         }
     }
-
 
     private fun buildDataSource(uri: Uri, isHls:Boolean = false, isDash:Boolean = false) : MediaSource {
         return buildDataSource(uri.toString(), isHls, isDash)
@@ -139,9 +180,16 @@ class StreamingActivity : PlayerActivityBase() {
     }
 
     override fun onVideoSizeChanged(videoSize: VideoSize) {
-        val param = PictureInPictureParams.Builder()
-        param.setAspectRatio(Rational(videoSize.width, videoSize.height))
-        setPictureInPictureParams(param.build())
+        try {
+            val param = PictureInPictureParams.Builder()
+            param.setAspectRatio(Rational(videoSize.width, videoSize.height))
+            L.e("size = $videoSize")
+            setPictureInPictureParams(param.build())
+        } catch (e: IllegalArgumentException) {
+            L.e("too extream ratio so set 16 : 9")
+            setPictureInPictureParams(PictureInPictureParams.Builder()
+                .setAspectRatio(Rational(16, 9)).build())
+        }
     }
 
     override fun onPlayPauseClicked() {

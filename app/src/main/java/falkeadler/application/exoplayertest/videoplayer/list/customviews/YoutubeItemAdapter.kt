@@ -5,25 +5,25 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.RecyclerView.ViewHolder
-import com.facebook.imagepipeline.request.ImageRequest
+import com.bumptech.glide.Glide
 import falkeadler.application.exoplayertest.videoplayer.R
 import falkeadler.application.exoplayertest.videoplayer.databinding.ContentItemBinding
-import falkeadler.application.exoplayertest.videoplayer.list.YoutubeData
 import falkeadler.application.exoplayertest.videoplayer.setDurationText
+import falkeadler.library.youtubedataextractor.YouTubeData
 
 class YoutubeItemAdapter: RecyclerView.Adapter<YoutubeItemAdapter.YoutubeItemHolder>() {
 
-    private var list = listOf<YoutubeData>()
+    private var list = mutableListOf<YouTubeData>()
     private var callback: OnItemClickListener? = null
+    val lastIndex: Int
+        get() = list.lastIndex
     inner class YoutubeItemHolder(private val binding: ContentItemBinding): ViewHolder(binding.root) {
-        fun configure(item: YoutubeData) {
-            binding.videoThumbnail.hierarchy.setPlaceholderImage(R.drawable.video_icon)
-            val replacedUrl = item.thumbnail.replace("http://", "https://")
-            binding.videoThumbnail.setImageRequest(ImageRequest.fromUri(replacedUrl))
+        fun configure(item: YouTubeData) {
+            Glide.with(this.itemView).load(item.thumbnail.url).placeholder(R.drawable.video_icon).into(binding.videoThumbnail)
             binding.title.text = item.title
             binding.smallInformation.text = "${item.author}"
-            binding.videoDuration.setDurationText(item.duration, true)
-            binding.liveIndicator.visibility = if(item.isLivestream) View.VISIBLE else View.GONE
+            binding.videoDuration.setDurationText(item.lengthSeconds, true)
+            binding.liveIndicator.visibility = if(item.isLiveContent) View.VISIBLE else View.GONE
             binding.root.setOnClickListener {
                 callback?.onItemClick(list[absoluteAdapterPosition])
             }
@@ -41,22 +41,27 @@ class YoutubeItemAdapter: RecyclerView.Adapter<YoutubeItemAdapter.YoutubeItemHol
         holder.configure(list[position])
     }
 
-    fun updateList(list: List<YoutubeData>) {
-        this.list = list
+    fun updateList(list: List<YouTubeData>) {
+        this.list = list.toMutableList()
         notifyDataSetChanged()
     }
 
+    fun addItem(item: YouTubeData) {
+        list.add(item)
+        notifyItemInserted(list.lastIndex)
+    }
+
     interface OnItemClickListener {
-        fun onItemClick(item: YoutubeData)
+        fun onItemClick(item: YouTubeData)
     }
 
     fun setOnItemClickListener(cb: OnItemClickListener) {
         callback = cb
     }
 
-    fun setOnItemClickListener(cb: (YoutubeData) -> Unit) {
+    fun setOnItemClickListener(cb: (YouTubeData) -> Unit) {
         callback = object : OnItemClickListener {
-            override fun onItemClick(item: YoutubeData) {
+            override fun onItemClick(item: YouTubeData) {
                 cb(item)
             }
         }

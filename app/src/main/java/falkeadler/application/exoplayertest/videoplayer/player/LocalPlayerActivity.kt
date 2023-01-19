@@ -16,6 +16,7 @@ import com.google.android.exoplayer2.video.VideoSize
 import falkeadler.application.exoplayertest.videoplayer.L
 import falkeadler.application.exoplayertest.videoplayer.R
 import falkeadler.application.exoplayertest.videoplayer.player.viewmodel.VideoData
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class LocalPlayerActivity : PlayerActivityBase() {
@@ -31,12 +32,10 @@ class LocalPlayerActivity : PlayerActivityBase() {
                     data ->
                 it.getStringExtra(MediaStore.Video.Media.BUCKET_ID)?.let { bucketId ->
                     playOnlyOne = false
-                    lifecycleScope.launch {
-                        val (list, index) = playerViewModel.buildLocalList(data, bucketId)
-                        player.addMediaItems(list)
-                        player.seekToDefaultPosition(index)
-                        player.prepare()
-                    }
+                    val (list, index) = playerViewModel.buildLocalList(data, bucketId)
+                    player.addMediaItems(list)
+                    player.seekToDefaultPosition(index)
+                    player.prepare()
                 } ?: run {
                     playOnlyOne = true
                     val item = MediaItem.Builder().setUri(data)

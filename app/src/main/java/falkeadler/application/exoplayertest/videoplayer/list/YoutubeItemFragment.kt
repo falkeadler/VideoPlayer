@@ -6,14 +6,21 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.databinding.DataBindingUtil
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.gson.Gson
+import falkeadler.application.exoplayertest.videoplayer.L
+import falkeadler.application.exoplayertest.videoplayer.R
 import falkeadler.application.exoplayertest.videoplayer.databinding.FragmentYoutubeItemBinding
 import falkeadler.application.exoplayertest.videoplayer.list.customviews.YoutubeItemAdapter
 import falkeadler.application.exoplayertest.videoplayer.list.viewmodel.YoutubeViewModel
 import falkeadler.application.exoplayertest.videoplayer.player.StreamingActivity
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
 
 class YoutubeItemFragment: Fragment() {
     private val linearLayoutManager: LinearLayoutManager by lazy {
@@ -38,7 +45,11 @@ class YoutubeItemFragment: Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        binding = FragmentYoutubeItemBinding.inflate(inflater, container, false)
+        binding = DataBindingUtil.inflate(inflater, R.layout.fragment_youtube_item, container, false)
+        binding!!.apply {
+            currentViewModel = viewModel
+            lifecycleOwner = this@YoutubeItemFragment
+        }
         return binding!!.root
     }
 
@@ -46,14 +57,49 @@ class YoutubeItemFragment: Fragment() {
         super.onViewCreated(view, savedInstanceState)
         binding?.let {
             binding ->
-            binding.bufferingContents.show()
             binding.youtubeList.adapter = youtubeAdapter
             binding.youtubeList.layoutManager = linearLayoutManager
-            viewModel.youtubeList.observe(viewLifecycleOwner) {
-                binding.bufferingContents.hide()
-                youtubeAdapter.updateList(it)
+            binding.youtubeList.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+                    if (!viewModel.loadingStateFlow.value && linearLayoutManager.findLastVisibleItemPosition() == youtubeAdapter.lastIndex) {
+                        // search 가능상태고 라스트 인덱스가 나왔는데 스크롤되었으면.
+                        viewModel.request()
+                    }
+                }
+            })
+            lifecycleScope.launchWhenStarted {
+                viewModel.youtubeItemFlow.collect() {
+                    youtubeAdapter.addItem(it)
+                }
+            }
+            lifecycleScope.launchWhenStarted {
+                viewModel.loadingStateFlow.collectLatest {
+                    L.e("[SEARCH]STATECHANGED = $it")
+                    if (it) {
+                        // loading
+                        binding.searchField.endIconDrawable = requireContext().getDrawable(R.drawable.working_in)
+                        binding.searchField.setEndIconActivated(false)
+                        binding.searchField.setEndIconOnClickListener(null)
+                    } else {
+                        binding.searchField.endIconDrawable = requireContext().getDrawable(R.drawable.search_drawable)
+                        binding.searchField.setEndIconActivated(true)
+                        binding.searchField.setEndIconOnClickListener {
+                            viewModel.request()
+                        }
+                        // search
+                    }
+                }
+            }
+            binding.searchField.setEndIconOnClickListener {
+                viewModel.request()
             }
         }
-        viewModel.getLists()
+        //viewModel.getLists()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        viewModel.stopRequest()
     }
 }

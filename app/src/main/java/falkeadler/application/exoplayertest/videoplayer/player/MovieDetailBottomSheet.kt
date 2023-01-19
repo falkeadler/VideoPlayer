@@ -1,5 +1,6 @@
 package falkeadler.application.exoplayertest.videoplayer.player
 
+import android.app.Dialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -7,10 +8,15 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.facebook.drawee.generic.RoundingParams
-import com.facebook.imagepipeline.request.ImageRequest
+import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.CenterCrop
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import falkeadler.application.exoplayertest.videoplayer.L
 import falkeadler.application.exoplayertest.videoplayer.R
 import falkeadler.application.exoplayertest.videoplayer.databinding.GenreTextviewBinding
 import falkeadler.application.exoplayertest.videoplayer.databinding.MovieDetailLayoutBinding
@@ -18,6 +24,9 @@ import falkeadler.application.exoplayertest.videoplayer.player.customviews.Searc
 import falkeadler.application.exoplayertest.videoplayer.player.viewmodel.MovieDetailViewModel
 import falkeadler.application.exoplayertest.videoplayer.player.viewmodel.VideoData
 import falkeadler.application.exoplayertest.videoplayer.setRuntimeText
+import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 
 class MovieDetailBottomSheet(private val data: VideoData): BottomSheetDialogFragment() {
@@ -40,7 +49,6 @@ class MovieDetailBottomSheet(private val data: VideoData): BottomSheetDialogFrag
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-
         binding = MovieDetailLayoutBinding.inflate(inflater, container, false)
         return binding!!.root
     }
@@ -49,21 +57,14 @@ class MovieDetailBottomSheet(private val data: VideoData): BottomSheetDialogFrag
         super.onViewCreated(view, savedInstanceState)
         binding?.let {
             binding ->
-            viewModel.buildedPosterPath.observe(viewLifecycleOwner) {
-                binding.loading.visibility = View.GONE
-                binding.listMovies.visibility = View.GONE
-                binding.contents.visibility = View.VISIBLE
-                binding.poster.setImageRequest(ImageRequest.fromUri(it))
-            }
             viewModel.movieItem.observe(viewLifecycleOwner) {
-                binding.loading.visibility = View.GONE
                 binding.listMovies.visibility = View.GONE
                 binding.contents.visibility = View.VISIBLE
                 binding.title.text = it.title
                 binding.infoEtc.text = it.overview
                 binding.runtime.setRuntimeText(it.runtime)
                 binding.year.text = it.releaseDate
-
+                binding.genres.removeAllViews()
                 val linearContentView = LinearLayout(requireContext())
                 linearContentView.orientation = LinearLayout.HORIZONTAL
                 for (g in it.genres) {
@@ -78,37 +79,55 @@ class MovieDetailBottomSheet(private val data: VideoData): BottomSheetDialogFrag
                     )
                 }
                 binding.genres.addView(linearContentView)
+                Glide.with(this).load(it.posterPath).transform(RoundedCorners(25)).into(binding.poster)
             }
             binding.closeBtn.setOnClickListener { dismiss() }
-            viewModel.searchedItemList.observe(viewLifecycleOwner) {
-                if (it.size == 1) {
-                    // 바로 쿼리 때림
-                    viewModel.getDetail(it.first().id)
-                } else if (it.size > 1) {
-                    // 리스트 보여줌
-                    binding.contents.visibility = View.GONE
-                    binding.loading.visibility = View.GONE
-                    binding.listMovies.visibility = View.VISIBLE
-                    itemAdapter.list = it
-                    itemAdapter.notifyDataSetChanged()
-                } else {
-                    Toast.makeText(requireContext(), "The MovieDB 에 정보가 없어요", Toast.LENGTH_SHORT).show()
-                    dismiss()
-                }
+            lifecycleScope.launchWhenResumed {
+                viewModel.searchedItemFlow.collect(collector = FlowCollector {
+                    val type = itemAdapter.addItem(it)
+                    if (type == -1) {
+                        binding.listMovies.scrollToPosition(itemAdapter.lastIndex)
+                    }
+                })
             }
 
             binding.listMovies.adapter = itemAdapter
             binding.listMovies.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.VERTICAL, false)
 
-            binding.loading.visibility = View.VISIBLE
-            binding.listMovies.visibility = View.GONE
             binding.contents.visibility = View.GONE
-            val cornerRadius = 20.0f
-            val roundParams =  RoundingParams.fromCornersRadius(cornerRadius)
-            binding.poster.hierarchy.roundingParams = roundParams
-
+            binding.listMovies.addOnScrollListener(object : RecyclerView.OnScrollListener(){
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+                    if (!itemAdapter.lastIsLoading) {
+                        val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                        if (layoutManager.findLastVisibleItemPosition() == itemAdapter.lastIndex) {
+                            L.e("[SCROLL]onScrolled! and load more!!!!!")
+                            viewModel.queryByTitle(data, true)
+                        }
+                    }
+                }
+            })
         }
-        viewModel.queryByTitle(data)
+        viewModel.queryByTitle(data, false)
+    }
+
+    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
+        return object : BottomSheetDialog(requireContext(), theme) {
+            override fun onBackPressed() {
+                binding?.run {
+                    if (contents.visibility == View.VISIBLE) {
+                        contents.visibility = View.GONE
+                        listMovies.visibility = View.VISIBLE
+                    } else {
+                        super.onBackPressed()
+                    }
+                } ?: kotlin.run {
+                    super.onBackPressed()
+                }
+            }
+        }.apply {
+            setCancelable(false)
+        }
     }
     
 
@@ -116,4 +135,5 @@ class MovieDetailBottomSheet(private val data: VideoData): BottomSheetDialogFrag
         super.onDestroyView()
         binding = null
     }
+
 }

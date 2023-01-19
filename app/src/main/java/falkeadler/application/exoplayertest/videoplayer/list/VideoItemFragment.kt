@@ -13,6 +13,7 @@ import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
+import androidx.databinding.DataBindingUtil
 import androidx.loader.app.LoaderManager
 import androidx.loader.content.CursorLoader
 import androidx.loader.content.Loader
@@ -59,7 +60,6 @@ class VideoItemFragment : Fragment(), LoaderManager.LoaderCallbacks<Cursor> {
                     startActivity(this)
                 }
             }
-            registerForContextMenu(it.itemList)
         }
     }
 
