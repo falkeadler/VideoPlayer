@@ -2,6 +2,7 @@ package falkeadler.application.exoplayertest.videoplayer.list
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -18,8 +19,7 @@ import falkeadler.application.exoplayertest.videoplayer.R
 import falkeadler.application.exoplayertest.videoplayer.databinding.FragmentYoutubeItemBinding
 import falkeadler.application.exoplayertest.videoplayer.list.customviews.YoutubeItemAdapter
 import falkeadler.application.exoplayertest.videoplayer.list.viewmodel.YoutubeViewModel
-import falkeadler.application.exoplayertest.videoplayer.player.StreamingActivity
-import kotlinx.coroutines.flow.collect
+import falkeadler.application.exoplayertest.videoplayer.player.PlayerActivity
 import kotlinx.coroutines.flow.collectLatest
 
 class YoutubeItemFragment: Fragment() {
@@ -30,7 +30,8 @@ class YoutubeItemFragment: Fragment() {
     private lateinit var viewModel: YoutubeViewModel
     private val youtubeAdapter = YoutubeItemAdapter().apply {
         setOnItemClickListener {
-            Intent(requireActivity(), StreamingActivity::class.java).run {
+            Intent(requireActivity(), PlayerActivity::class.java).run {
+                data = Uri.parse(it.videos.first().url)
                 putExtra("YOUTUBEDATA", Gson().toJson(it))
                 startActivity(this)
             }

@@ -25,7 +25,6 @@ import java.net.URLEncoder
 import kotlin.math.abs
 
 class MovieDetailViewModel: ViewModel() {
-
     private interface MovieInformationInterface {
         @GET("search/movie")
         suspend fun searchMovie(@Query("query") queryString: String,
@@ -82,7 +81,7 @@ class MovieDetailViewModel: ViewModel() {
     val searchedItemFlow = _searchedItemFlow.asSharedFlow()
     private val loadingItem = SearchedItem(-1, "", "")
     private val cancelItem = SearchedItem(-2, "", "")
-    fun queryByTitle(data: VideoData, nextPage: Boolean = false) {
+    fun queryByTitle(data: String, nextPage: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) {
             if (nextPage && (totalPages < 2 || currentPage >= totalPages)) {
                 L.e("[SCROLL] no more contents! totalPages = $totalPages || currentPage = $currentPage")

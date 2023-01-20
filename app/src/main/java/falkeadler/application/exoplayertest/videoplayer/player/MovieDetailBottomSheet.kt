@@ -29,7 +29,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 
-class MovieDetailBottomSheet(private val data: VideoData): BottomSheetDialogFragment() {
+class MovieDetailBottomSheet(private val movieTitle: String): BottomSheetDialogFragment() {
     companion object {
         const val TAG = "MovieDetailBottomSheet"
     }
@@ -102,13 +102,13 @@ class MovieDetailBottomSheet(private val data: VideoData): BottomSheetDialogFrag
                         val layoutManager = recyclerView.layoutManager as LinearLayoutManager
                         if (layoutManager.findLastVisibleItemPosition() == itemAdapter.lastIndex) {
                             L.e("[SCROLL]onScrolled! and load more!!!!!")
-                            viewModel.queryByTitle(data, true)
+                            viewModel.queryByTitle(movieTitle, true)
                         }
                     }
                 }
             })
         }
-        viewModel.queryByTitle(data, false)
+        viewModel.queryByTitle(movieTitle, false)
     }
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {

@@ -25,34 +25,6 @@
         android:theme="@style/Theme.VideoPlayer"
         tools:targetApi="31">
         <activity
-            android:name=".player.StreamingActivity"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:label="@string/title_activity_player"
-            android:launchMode="singleTask"
-            android:resizeableActivity="true"
-            android:supportsPictureInPicture="true"
-            android:theme="@style/Theme.VideoPlayer.Fullscreen">
-            <meta-data
-                android:name="android.app.lib_name"
-                android:value="" />
-        </activity>
-        <activity
-            android:name=".player.LocalPlayerActivity"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:label="@string/title_activity_player"
-            android:launchMode="singleTask"
-            android:resizeableActivity="true"
-            android:supportsPictureInPicture="true"
-            android:theme="@style/Theme.VideoPlayer.Fullscreen">
-            <meta-data
-                android:name="android.app.lib_name"
-                android:value="" />
-        </activity>
-        <activity
             android:name=".player.PlayerActivity"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
             android:excludeFromRecents="true"
@@ -62,9 +34,6 @@
             android:resizeableActivity="true"
             android:supportsPictureInPicture="true"
             android:theme="@style/Theme.VideoPlayer.Fullscreen">
-            <meta-data
-                android:name="android.app.lib_name"
-                android:value="" />
         </activity>
         <activity
             android:name=".MainActivity"

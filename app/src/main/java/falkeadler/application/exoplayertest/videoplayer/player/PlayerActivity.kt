@@ -1,6 +1,4 @@
-/*
-이 코드는 플레이어 액티비티 초기 코드로 일단 그냥 둡니다.
- */
+
 package falkeadler.application.exoplayertest.videoplayer.player
 
 import android.annotation.SuppressLint
@@ -27,20 +25,27 @@ import android.widget.SeekBar
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.forEach
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.MediaMetadata
 import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.source.MergingMediaSource
+import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.video.VideoSize
 import falkeadler.application.exoplayertest.videoplayer.L
 import falkeadler.application.exoplayertest.videoplayer.PlayerApplication
 import falkeadler.application.exoplayertest.videoplayer.R
 import falkeadler.application.exoplayertest.videoplayer.databinding.ActivityPlayerBinding
 import falkeadler.application.exoplayertest.videoplayer.player.viewmodel.PlayerViewModel
-import falkeadler.application.exoplayertest.videoplayer.player.viewmodel.VideoData
 import falkeadler.application.exoplayertest.videoplayer.player.customviews.VideoControllerView
+import falkeadler.application.exoplayertest.videoplayer.player.viewmodel.ContentsType
+import falkeadler.library.youtubedataextractor.YouTubeData
 import kotlinx.coroutines.*
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 
 class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListener{
     private lateinit var player: ExoPlayer
@@ -51,8 +56,6 @@ class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListe
     private var isFullscreen: Boolean = false
 
     private lateinit var playerViewModel: PlayerViewModel
-
-    private var playOnlyOne = false
 
     private var afState = AudioFocusState.LOSS
     private lateinit var audioManager: AudioManager
@@ -66,6 +69,10 @@ class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListe
     private val MEDIA_ACTION_ALL = MEDIA_ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_SKIP_TO_NEXT or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
     private val MEDIA_ACION_PLAY_PAUSE_NEXT = MEDIA_ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_SKIP_TO_NEXT
     private val MEDIA_ACION_PLAY_PAUSE_PRVIOUS = MEDIA_ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+
+    private lateinit var cacheManager: PlayerApplication.CacheManger
+
+    private var currentContentsType: ContentsType = ContentsType.Local
 
     private val audioFocusRequest: AudioFocusRequest by lazy {
         AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).run {
@@ -83,6 +90,7 @@ class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListe
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        cacheManager = PlayerApplication.CacheManger.getInstance(this)
         if (Build.VERSION.SDK_INT >= 30) {
             window.setDecorFitsSystemWindows(false)
         }
@@ -99,50 +107,7 @@ class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListe
         playerViewModel = ViewModelProvider(this, ViewModelProvider.AndroidViewModelFactory.getInstance(application))[PlayerViewModel::class.java]
         isFullscreen = true
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        player = ExoPlayer.Builder(this).build()
-        player.addListener(
-            object : Player.Listener {
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    super.onPlaybackStateChanged(playbackState)
-                    if (playbackState == Player.STATE_ENDED) {
-                        if (player.currentMediaItemIndex == player.mediaItemCount - 1 || playOnlyOne) {
-                            finish()
-                        }
-                    }
-                }
 
-                override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    binding.playController.playingStateChanged(isPlaying)
-                    updatePlaybackStateForMediaSession()
-                }
-
-                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                    super.onMediaItemTransition(mediaItem, reason)
-                    mediaItem?.localConfiguration?.tag?.let {
-                        if (it is VideoData) {
-                            supportActionBar?.title = it.title
-                            if (this@PlayerActivity::mediaSession.isInitialized) {
-                                val metaData = MediaMetadataCompat.Builder().putString(
-                                    MediaMetadataCompat.METADATA_KEY_TITLE,
-                                    it.title
-                                ).build()
-                                mediaSession.setMetadata(metaData)
-                            }
-                        }
-                    }
-                }
-
-                override fun onVideoSizeChanged(videoSize: VideoSize) {
-                    super.onVideoSizeChanged(videoSize)
-                    val param = PictureInPictureParams.Builder()
-                    param.setAspectRatio(Rational(videoSize.width, videoSize.height))
-                    setPictureInPictureParams(param.build())
-                }
-
-            }
-        )
-
-        binding.playerView.player = player
         windowInsetsController = WindowCompat.getInsetsController(window, binding.playController)
 
         binding.playController.setOnControllerButtonsClickListener(object : VideoControllerView.OnControllerButtonsClickListener {
@@ -199,44 +164,174 @@ class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListe
                 isFullscreen = true
             }
         }
-        handleIntent(intent)
+        processIntent(intent)
+        player.addListener(playerListener)
+        binding.playerView.player = player
+        player.prepare()
     }
 
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        L.e("[PIPTEST] onNewIntent????")
-        handleIntent(intent)
-    }
-
-    private fun handleIntent(intent: Intent?) {
-        intent?.let {
-            oldIntent = it
-            if (player.isPlaying) {
-                player.stop()
-                player.clearMediaItems()
+    private val playerListener = object : Player.Listener {
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            super.onPlaybackStateChanged(playbackState)
+            binding.playController.bufferingStateChanged(false)
+            if (playbackState == Player.STATE_ENDED) {
+                if (player.currentMediaItemIndex == player.mediaItemCount - 1) {
+                    finish()
+                }
             }
-            it.data?.let {
-                    data ->
-                it.getStringExtra(MediaStore.Video.Media.BUCKET_ID)?.let { bucketId ->
-                    playOnlyOne = false
-                    lifecycleScope.launch {
-                        val (list, index) = playerViewModel.buildLocalList(data, bucketId)
-                        player.addMediaItems(list)
-                        player.seekToDefaultPosition(index)
-                        player.prepare()
+            if (playbackState == Player.STATE_BUFFERING) {
+                L.e("buffering : ${player.bufferedPercentage}%")
+                binding.playController.bufferingStateChanged(true)
+                binding.playController.seekBarSecondaryProgress = player.bufferedPercentage
+            }
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            binding.playController.playingStateChanged(isPlaying)
+            updatePlaybackStateForMediaSession()
+        }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            super.onMediaItemTransition(mediaItem, reason)
+            L.e("title = ${mediaItem?.mediaMetadata?.title}")
+            mediaItem?.mediaMetadata?.title?.let {
+                title ->
+                supportActionBar?.title = title
+                val mediaMetadataCompat = MediaMetadataCompat.Builder().putString(
+                    MediaMetadataCompat.METADATA_KEY_TITLE,
+                    title.toString()
+                ).build()
+                mediaSession.setMetadata(mediaMetadataCompat)
+            }
+        }
+
+        override fun onVideoSizeChanged(videoSize: VideoSize) {
+            super.onVideoSizeChanged(videoSize)
+            try {
+                val param = PictureInPictureParams.Builder()
+                param.setAspectRatio(Rational(videoSize.width, videoSize.height))
+                setPictureInPictureParams(param.build())
+            } catch (e: java.lang.IllegalArgumentException) {
+                val param = PictureInPictureParams.Builder()
+                param.setAspectRatio(Rational(16, 9))
+                setPictureInPictureParams(param.build())
+            } catch (e: IllegalArgumentException) {
+                val param = PictureInPictureParams.Builder()
+                param.setAspectRatio(Rational(16, 9))
+                setPictureInPictureParams(param.build())
+            }
+        }
+    }
+
+
+    private fun processIntent(intent: Intent?) {
+        intent?.run {
+            if (this@PlayerActivity::oldIntent.isInitialized) {
+                player.stop()
+                player.release()
+                player.removeListener(playerListener)
+                binding.playerView.player = null
+            }
+            oldIntent = this
+            intent.data?.let {
+                uri ->
+                val trackSelector = DefaultTrackSelector(this@PlayerActivity).apply {
+                    setParameters(buildUponParameters().setMaxVideoSize(1280, 720))
+                }
+                player = ExoPlayer.Builder(this@PlayerActivity)
+                    .setMediaSourceFactory(cacheManager.createMediaSourceFactory())
+                    .setTrackSelector(trackSelector)
+                    .build()
+                if ((uri.scheme == "content" && uri.toString().startsWith(MediaStore.Video.Media.EXTERNAL_CONTENT_URI.toString())) ||
+                            uri.scheme == "file") {
+                    val metadata = if (uri.scheme == "file") {
+                        MediaMetadata.Builder().setTitle(uri.lastPathSegment).build()
+                    } else {
+                        val title = contentResolver.query(uri, null, null, null, null).use {
+                            cursor ->
+                            val value =
+                            cursor?.let {
+                                it.moveToFirst()
+                                it.getString(it.getColumnIndexOrThrow(MediaStore.Video.VideoColumns.TITLE))
+                            } ?: ""
+                            value
+                        }
+                        MediaMetadata.Builder().setTitle(title).build()
                     }
-                } ?: run {
-                    playOnlyOne = true
-                    val item = MediaItem.Builder().setUri(data)
-                        .setTag(playerViewModel.queryMediaData(data))
-                        .setMediaId(data.lastPathSegment!!).build()
-                    player.addMediaItem(item)
-                    player.prepare()
+                    val mediaItem = MediaItem.fromUri(uri).buildUpon().setMediaMetadata(metadata).build()
+                    player.addMediaItem(mediaItem)
+                    currentContentsType = ContentsType.Local
+                } else if (uri.scheme == "https") {
+                    //streaming
+                    if (intent.hasExtra("YOUTUBEDATA")) {
+                        intent.getStringExtra("YOUTUBEDATA")?.let {
+                            ytdatastr ->
+                            val parser = Json {
+                                isLenient = true
+                                coerceInputValues = true
+                                ignoreUnknownKeys = true
+                            }
+                            val data = parser.decodeFromString<YouTubeData>(ytdatastr)
+                            val metadata = MediaMetadata.Builder().setTitle(data.title).build()
+                            if (data.isLiveContent) {
+                                if (data.hlsStream.isNotEmpty()) {
+                                    val selected = data.hlsStream.maxBy {
+                                        it.height * it.width * it.audioSampleRate.toLong()
+                                    }
+                                    MediaItem.fromUri(selected.url).buildUpon().setMediaMetadata(metadata).build()
+                                    val source = cacheManager.buildHLSMediaSource(selected.url)
+                                    player.setMediaSource(source)
+                                } else {
+                                    val selectedVideo = data.videos.maxBy { it.height * it.width }
+                                    val videoItem = MediaItem.fromUri(selectedVideo.url).buildUpon().setMediaMetadata(metadata).build()
+                                    val selectedAudio = data.audios.maxBy { it.audioSampleRate }
+                                    val audioItem = MediaItem.fromUri(selectedAudio.url).buildUpon().setMediaMetadata(metadata).build()
+                                    val mergeSource = MergingMediaSource(true,
+                                    cacheManager.buildDASHMediaSource(videoItem),
+                                    cacheManager.buildDASHMediaSource(audioItem))
+                                    player.setMediaSource(mergeSource, true)
+                                }
+                            } else {
+                                val videoSource = MediaItem.fromUri(uri).buildUpon().setMediaMetadata(metadata).build()
+                                val video = cacheManager.buildProgressiveMediaSource(videoSource)
+                                val audioSource = data.audios.filter { it.itag == 140 }.map { MediaItem.fromUri(it.url) }.firstOrNull() ?:
+                                run {
+                                    val max = data.audios.maxBy { it.audioSampleRate }
+                                    MediaItem.fromUri(max.url)
+                                }
+                                val audio = cacheManager.buildProgressiveMediaSource(audioSource)
+                                val merged = MergingMediaSource(true, video, audio)
+                                player.setMediaSource(merged)
+                            }
+                        }
+                        currentContentsType = ContentsType.YouTube
+                    } else {
+                        // test!!!
+                        if (uri.lastPathSegment?.endsWith("m3u8") == true) {
+                            val mediaSource = cacheManager.buildHLSMediaSource(uri.toString())
+                            player.setMediaSource(mediaSource)
+                        } else if (uri.lastPathSegment?.endsWith("mp4") == true) {
+                            val mediaSource =
+                                cacheManager.buildProgressiveMediaSource(uri.toString())
+                            player.setMediaSource(mediaSource)
+                        } else {
+                            val mediaSource = cacheManager.buildDASHSMediaSource(uri.toString())
+                            player.setMediaSource(mediaSource)
+                        }
+                        currentContentsType = ContentsType.Streaming
+                    }
                 }
             }
         } ?: finish()
     }
 
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        processIntent(intent)
+        player.addListener(playerListener)
+        binding.playerView.player = player
+        player.prepare()
+    }
     override fun onStart() {
         super.onStart()
         // 어쨋든 여기가 실행됨.
@@ -286,7 +381,6 @@ class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListe
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
-        L.e("[PIPTEST] call mode  change $isInPictureInPictureMode, config = ")
         if (isInPictureInPictureMode) {
             onceEnterPipMode = true
             stopTimer2() // 타이머 처리를 위한
@@ -320,6 +414,19 @@ class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListe
         }
     }
 
+    override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
+        if (currentContentsType == ContentsType.Local) {
+            menu?.forEach {
+                it.isEnabled = it.itemId == R.id.searchTmdb
+            }
+        } else if (currentContentsType == ContentsType.YouTube) {
+            menu?.forEach {
+                it.isEnabled = it.itemId == R.id.showYoutubeInfo
+            }
+        }
+        return super.onPrepareOptionsMenu(menu)
+    }
+
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.menu_player, menu)
         return true
@@ -329,13 +436,12 @@ class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListe
         when(item.itemId) {
             R.id.searchTmdb -> {
                 // search tmdb and start bottomsheet for ac
-                L.e("Call optionMenu")
-                player.currentMediaItem?.localConfiguration?.tag?.let {
-                    if (it is VideoData) {
-                        val frag = MovieDetailBottomSheet(it)
-                        frag.show(supportFragmentManager, MovieDetailBottomSheet.TAG)
-                    }
+                player.currentMediaItem?.mediaMetadata?.title?.let {
+                    val frag = MovieDetailBottomSheet(it.toString())
+                    frag.show(supportFragmentManager, MovieDetailBottomSheet.TAG)
                 }
+            }
+            R.id.showYoutubeInfo -> {
 
             }
         }

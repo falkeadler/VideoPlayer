@@ -7,13 +7,11 @@ import android.os.Bundle
 import android.provider.MediaStore
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
-import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
-import androidx.databinding.DataBindingUtil
 import androidx.loader.app.LoaderManager
 import androidx.loader.content.CursorLoader
 import androidx.loader.content.Loader
@@ -21,7 +19,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import falkeadler.application.exoplayertest.videoplayer.L
 import falkeadler.application.exoplayertest.videoplayer.databinding.FragmentVideoItemBinding
 import falkeadler.application.exoplayertest.videoplayer.list.customviews.VideoItemCursorAdapter
-import falkeadler.application.exoplayertest.videoplayer.player.LocalPlayerActivity
+import falkeadler.application.exoplayertest.videoplayer.player.PlayerActivity
 
 
 class VideoItemFragment : Fragment(), LoaderManager.LoaderCallbacks<Cursor> {
@@ -54,7 +52,7 @@ class VideoItemFragment : Fragment(), LoaderManager.LoaderCallbacks<Cursor> {
                 adapterPosition ->
                 val uri = videoAdapter.getUri(adapterPosition)
                 val bucketId = videoAdapter.getBucketId(adapterPosition)
-                Intent(requireActivity(), LocalPlayerActivity::class.java).run {
+                Intent(requireActivity(), PlayerActivity::class.java).run {
                     data = uri
                     putExtra(MediaStore.Video.VideoColumns.BUCKET_ID, bucketId)
                     startActivity(this)

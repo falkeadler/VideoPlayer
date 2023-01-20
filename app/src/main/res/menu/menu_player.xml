@@ -4,5 +4,9 @@
     <item android:id="@+id/searchTmdb"
         android:icon="@drawable/tmdb"
         android:title="Search The Movie DB"
-        app:showAsAction="always" />
+        app:showAsAction="never" />
+    <item android:id="@+id/showYoutubeInfo"
+        android:icon="@drawable/youtube"
+        android:title="Show Youtube Infomation"
+        app:showAsAction="never" />
 </menu>
