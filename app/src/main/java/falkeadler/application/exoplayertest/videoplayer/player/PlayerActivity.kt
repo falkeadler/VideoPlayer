@@ -22,18 +22,22 @@ import android.support.v4.media.session.PlaybackStateCompat
 import android.util.Rational
 import android.view.*
 import android.widget.SeekBar
+import android.widget.Toast
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.forEach
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import com.google.android.exoplayer2.ExoPlayer
-import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.MediaMetadata
-import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.*
+import com.google.android.exoplayer2.C.TrackType
 import com.google.android.exoplayer2.source.MergingMediaSource
+import com.google.android.exoplayer2.source.TrackGroup
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
+import com.google.android.exoplayer2.trackselection.TrackSelectionOverrides
+import com.google.android.exoplayer2.trackselection.TrackSelectionOverrides.TrackSelectionOverride
+import com.google.android.exoplayer2.trackselection.TrackSelectionParameters
+import com.google.android.exoplayer2.trackselection.TrackSelector
 import com.google.android.exoplayer2.video.VideoSize
 import falkeadler.application.exoplayertest.videoplayer.L
 import falkeadler.application.exoplayertest.videoplayer.PlayerApplication
@@ -73,6 +77,12 @@ class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListe
     private lateinit var cacheManager: PlayerApplication.CacheManger
 
     private var currentContentsType: ContentsType = ContentsType.Local
+
+    private val trackSelector: TrackSelector by lazy {
+        DefaultTrackSelector(this)/*.apply {
+            setParameters(this.buildUponParameters().setMaxVideoSizeSd())
+        }*/
+    }
 
     private val audioFocusRequest: AudioFocusRequest by lazy {
         AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).run {
@@ -125,6 +135,34 @@ class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListe
 
             override fun onRewindClicked() {
                 player.seekBack()
+            }
+
+            override fun onTrackSelectionClicked() {
+                // trackselection
+                val set = mutableSetOf<Format>()
+                val groupList = player.currentTracksInfo.trackGroupInfos.filter {
+                    it.trackType == C.TRACK_TYPE_VIDEO && it.isSupported
+                }.map {
+                    it.trackGroup
+                }.filter {
+                    it.getFormat(0).codecs != null
+                }.map {
+                    val sb = java.lang.StringBuilder()
+                    sb.append("video groups ")
+                        .append("id = ").append(it.id).append(" ")
+                        .append("length = ").append(it.length).append(" ")
+                        .append("support video size = \n")
+                    for (i in 0 until it.length) {
+                        val format = it.getFormat(i)
+                        sb.append("${format.width} x ${format.height} || codec = ${format.codecs} || mimeType = ${format.containerMimeType}\n")
+                    }
+                    sb.toString()
+                }
+                val frag = OptionSelectBottomSheet("Video Track Select", groupList) {
+                    // selectedIndex =
+                    //do Noting
+                }
+                frag.show(supportFragmentManager, OptionSelectBottomSheet.TAG)
             }
         })
 
@@ -221,9 +259,32 @@ class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListe
                 setPictureInPictureParams(param.build())
             }
         }
+
+        override fun onTracksInfoChanged(tracksInfo: TracksInfo) {
+            super.onTracksInfoChanged(tracksInfo)
+            if (currentContentsType == ContentsType.YouTube) {
+                // 시작시 트랙을 576 이하중 젤 큰걸로 셋.
+                val selected = tracksInfo.trackGroupInfos.filter { it.trackType == C.TRACK_TYPE_VIDEO && it.trackGroup.getFormat(0).height <= 576 }
+                    .maxBy { it.trackGroup.getFormat(0).height }
+                binding.debugTextView.append("force select youtube \n ${selected.trackGroup} || ${selected.trackGroup.getFormat(0).width} x ${selected.trackGroup.getFormat(0).height}")
+                val param = player.trackSelectionParameters
+                player.trackSelectionParameters =
+                param.buildUpon().setTrackSelectionOverrides(
+                    TrackSelectionOverrides.Builder().addOverride(TrackSelectionOverride(selected.trackGroup)).build()
+                ).build()
+            }
+        }
+
+        override fun onTrackSelectionParametersChanged(parameters: TrackSelectionParameters) {
+            super.onTrackSelectionParametersChanged(parameters)
+            player.currentTracksInfo.trackGroupInfos.filter {
+                it.isSelected  && it.trackType == C.TRACK_TYPE_VIDEO
+            }.forEach {
+                val selected = it.trackGroup
+                binding.debugTextView.append("\n ${selected.id} || ${selected.getFormat(0).width} x ${selected.getFormat(0).height}")
+            }
+        }
     }
-
-
     private fun processIntent(intent: Intent?) {
         intent?.run {
             if (this@PlayerActivity::oldIntent.isInitialized) {
@@ -235,9 +296,6 @@ class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListe
             oldIntent = this
             intent.data?.let {
                 uri ->
-                val trackSelector = DefaultTrackSelector(this@PlayerActivity).apply {
-                    setParameters(buildUponParameters().setMaxVideoSize(1280, 720))
-                }
                 player = ExoPlayer.Builder(this@PlayerActivity)
                     .setMediaSourceFactory(cacheManager.createMediaSourceFactory())
                     .setTrackSelector(trackSelector)
@@ -292,16 +350,33 @@ class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListe
                                     player.setMediaSource(mergeSource, true)
                                 }
                             } else {
-                                val videoSource = MediaItem.fromUri(uri).buildUpon().setMediaMetadata(metadata).build()
-                                val video = cacheManager.buildProgressiveMediaSource(videoSource)
-                                val audioSource = data.audios.filter { it.itag == 140 }.map { MediaItem.fromUri(it.url) }.firstOrNull() ?:
-                                run {
-                                    val max = data.audios.maxBy { it.audioSampleRate }
-                                    MediaItem.fromUri(max.url)
+                                val videos = data.videos.map {
+                                    val mediaItem = MediaItem.fromUri(it.url).buildUpon().setMediaMetadata(metadata).build()
+                                    cacheManager.buildProgressiveMediaSource(mediaItem)
+                                }.toTypedArray()
+
+                                val audio = data.audios.find { it.itag == 140 }?.let {
+                                    itemAudio ->
+                                    val mediaItem = MediaItem.fromUri(itemAudio.url).buildUpon().setMediaMetadata(metadata).build()
+                                    cacheManager.buildProgressiveMediaSource(mediaItem)
+                                } ?: let {
+                                    val selected = data.audios.reduce {
+                                        acc, itemAudio ->
+                                        if (acc.audioSampleRate < itemAudio.audioSampleRate) {
+                                            itemAudio
+                                        } else {
+                                            acc
+                                        }
+                                    }
+                                    val mediaItem = MediaItem.fromUri(selected.url).buildUpon().setMediaMetadata(metadata).build()
+                                    cacheManager.buildProgressiveMediaSource(mediaItem)
                                 }
-                                val audio = cacheManager.buildProgressiveMediaSource(audioSource)
-                                val merged = MergingMediaSource(true, video, audio)
-                                player.setMediaSource(merged)
+
+                                // 그러면 이게 트랙들을 셀렉트 해야하니까는. 모든 비디오를 다 하는게 맞는듯하다
+                                val merged = MergingMediaSource(true, *videos, audio)
+                                // 사실 여기서만 SD로 하다가 좀 캐싱되거나 버퍼링 되면 높이면 되긴 하그등?
+
+                                player.setMediaSource(merged, true)
                             }
                         }
                         currentContentsType = ContentsType.YouTube
@@ -324,7 +399,6 @@ class PlayerActivity : AppCompatActivity(), AudioManager.OnAudioFocusChangeListe
             }
         } ?: finish()
     }
-
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         processIntent(intent)

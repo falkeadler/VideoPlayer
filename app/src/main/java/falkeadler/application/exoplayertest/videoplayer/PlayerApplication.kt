@@ -22,7 +22,8 @@ import com.google.android.exoplayer2.upstream.cache.SimpleCache
 import com.google.android.exoplayer2.util.MimeTypes
 import java.io.File
 
-class PlayerApplication: Application() {
+class
+PlayerApplication: Application() {
     override fun onCreate() {
         super.onCreate()
     }

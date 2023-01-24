@@ -26,6 +26,8 @@ constructor(context: Context,
         fun onPlayPauseClicked()
         fun onFastForwardClicked()
         fun onRewindClicked()
+
+        fun onTrackSelectionClicked()
     }
 
     interface OnControllerVisibilityChangeListener {
@@ -96,6 +98,10 @@ constructor(context: Context,
             }
             endGestureListener.onTouchEvent(p1)
             true
+        }
+
+        binding.progressLayout.trackSelection.setOnClickListener {
+            buttonClickListener?.onTrackSelectionClicked()
         }
     }
 

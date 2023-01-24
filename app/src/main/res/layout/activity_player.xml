@@ -5,13 +5,15 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/darker_gray"
+    android:background="@android:color/black"
     android:fitsSystemWindows="false"
     tools:context=".player.PlayerActivity">
+
     <com.google.android.exoplayer2.ui.StyledPlayerView
         android:id="@+id/playerView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="@null"
         app:use_controller="false"/>
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appbarLayout"
@@ -33,4 +35,10 @@
         android:id="@+id/playController"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
+    <TextView
+        android:id="@+id/debugTextView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@null"
+        android:textColor="@color/white"/>
 </androidx.constraintlayout.widget.ConstraintLayout>

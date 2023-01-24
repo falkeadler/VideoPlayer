@@ -38,7 +38,7 @@
             app:layout_constraintEnd_toStartOf="@id/screenMode"
             />
         <ImageButton
-            android:id="@+id/searchTmdb"
+            android:id="@+id/trackSelection"
             android:layout_width="50dp"
             android:layout_height="50dp"
             android:adjustViewBounds="true"
